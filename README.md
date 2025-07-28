@@ -1,0 +1,1 @@
+StellarScope is an immersive, interactive 3D web experience powered by Three.js, designed to educate, engage, and awe users by showcasing the planets of our solar system. The site will combine dynamic 3D visuals, physics-based motion, and user interactivity to simulate the solar system and provide quick educational content on each planet.
