@@ -5,55 +5,19 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useGLTF, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 
-// Earth Model Component with Mouse Following using Raycaster
-function EarthModel() {
-  const earthRef = useRef<THREE.Group>(null);
-  const { scene } = useGLTF('/models/Earth.gltf');
-  const { camera, size, gl } = useThree();
-  
+// Custom hook for shared drag logic
+function useDragLogic() {
+  const { camera, gl } = useThree();
   const [isDragging, setIsDragging] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [earthRotation, setEarthRotation] = useState({ x: 0, y: 0 });
   
-  // Create raycaster and invisible plane for mouse intersection
   const raycaster = useRef(new THREE.Raycaster());
   const intersectionPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0));
   const mouse = useRef(new THREE.Vector2());
-  
-  // Clone the scene to avoid conflicts
-  const earthScene = scene.clone();
-  
-  // Apply rotation and position to the earth
-  useFrame(() => {
-    if (earthRef.current) {
-      earthRef.current.rotation.x = earthRotation.x;
-      earthRef.current.rotation.y = earthRotation.y;
-      
-      if (isDragging) {
-        // Convert canvas-relative mouse coordinates to normalized device coordinates (-1 to +1)
-        const canvas = gl.domElement;
-        const rect = canvas.getBoundingClientRect();
-        mouse.current.x = (mousePosition.x / rect.width) * 2 - 1;
-        mouse.current.y = -(mousePosition.y / rect.height) * 2 + 1;
-        
-        // Set up raycaster from camera through mouse position
-        raycaster.current.setFromCamera(mouse.current, camera);
-        
-        // Find intersection point with our invisible plane at z=0
-        const intersectPoint = new THREE.Vector3();
-        raycaster.current.ray.intersectPlane(intersectionPlane.current, intersectPoint);
-        
-        // Update Earth position to follow mouse
-        if (intersectPoint) {
-          earthRef.current.position.copy(intersectPoint);
-        }
-      }
-    }
-  });
 
   const handlePointerDown = (event: any) => {
     setIsDragging(true);
-    // Get canvas bounds for proper coordinate conversion
     const canvas = gl.domElement;
     const rect = canvas.getBoundingClientRect();
     setMousePosition({
@@ -65,8 +29,6 @@ function EarthModel() {
 
   const handlePointerMove = (event: any) => {
     if (!isDragging) return;
-    
-    // Get canvas bounds for proper coordinate conversion
     const canvas = gl.domElement;
     const rect = canvas.getBoundingClientRect();
     const prevMousePosition = mousePosition;
@@ -77,10 +39,8 @@ function EarthModel() {
     
     setMousePosition(newMousePosition);
     
-    // Also handle rotation based on delta movement
     const deltaX = newMousePosition.x - prevMousePosition.x;
     const deltaY = newMousePosition.y - prevMousePosition.y;
-    
     const rotationSpeed = 0.0005;
     setEarthRotation(prev => ({
       x: prev.x - deltaY * rotationSpeed,
@@ -90,21 +50,33 @@ function EarthModel() {
     event.stopPropagation();
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (ref: React.RefObject<any>) => {
     setIsDragging(false);
-    // Return Earth to center when released
-    if (earthRef.current) {
-      earthRef.current.position.x = 0;
-      earthRef.current.position.y = 0;
-      earthRef.current.position.z = 0;
+    if (ref.current) {
+      ref.current.position.set(0, 0, 0);
     }
   };
 
-  // Add global mouse listeners when dragging
+  const updatePosition = (ref: React.RefObject<any>) => {
+    if (ref.current && isDragging) {
+      const canvas = gl.domElement;
+      const rect = canvas.getBoundingClientRect();
+      mouse.current.x = (mousePosition.x / rect.width) * 2 - 1;
+      mouse.current.y = -(mousePosition.y / rect.height) * 2 + 1;
+      
+      raycaster.current.setFromCamera(mouse.current, camera);
+      const intersectPoint = new THREE.Vector3();
+      raycaster.current.ray.intersectPlane(intersectionPlane.current, intersectPoint);
+      
+      if (intersectPoint) {
+        ref.current.position.copy(intersectPoint);
+      }
+    }
+  };
+
   React.useEffect(() => {
     if (isDragging) {
       const handleGlobalMouseMove = (event: MouseEvent) => {
-        // Get canvas bounds for proper coordinate conversion
         const canvas = gl.domElement;
         const rect = canvas.getBoundingClientRect();
         const prevMousePosition = mousePosition;
@@ -115,10 +87,8 @@ function EarthModel() {
         
         setMousePosition(newMousePosition);
         
-        // Also handle rotation based on delta movement
         const deltaX = newMousePosition.x - prevMousePosition.x;
         const deltaY = newMousePosition.y - prevMousePosition.y;
-        
         const rotationSpeed = 0.0005;
         setEarthRotation(prev => ({
           x: prev.x - deltaY * rotationSpeed,
@@ -126,15 +96,7 @@ function EarthModel() {
         }));
       };
 
-      const handleGlobalMouseUp = () => {
-        setIsDragging(false);
-        // Return Earth to center when released
-        if (earthRef.current) {
-          earthRef.current.position.x = 0;
-          earthRef.current.position.y = 0;
-          earthRef.current.position.z = 0;
-        }
-      };
+      const handleGlobalMouseUp = () => setIsDragging(false);
 
       window.addEventListener('mousemove', handleGlobalMouseMove);
       window.addEventListener('mouseup', handleGlobalMouseUp);
@@ -145,6 +107,32 @@ function EarthModel() {
       };
     }
   }, [isDragging, mousePosition]);
+
+  return {
+    isDragging,
+    earthRotation,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    updatePosition
+  };
+}
+
+// Earth Model Component
+function EarthModel() {
+  const earthRef = useRef<THREE.Group>(null);
+  const { scene } = useGLTF('/models/Earth.gltf');
+  const { isDragging, earthRotation, handlePointerDown, handlePointerMove, handlePointerUp, updatePosition } = useDragLogic();
+  
+  const earthScene = scene.clone();
+  
+  useFrame(() => {
+    if (earthRef.current) {
+      earthRef.current.rotation.x = earthRotation.x;
+      earthRef.current.rotation.y = earthRotation.y;
+      updatePosition(earthRef);
+    }
+  });
   
   return (
     <group 
@@ -153,148 +141,25 @@ function EarthModel() {
       position={[0, 0, 0]}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
+      onPointerUp={() => handlePointerUp(earthRef)}
     >
       <primitive object={earthScene} />
     </group>
   );
 }
 
-// Fallback Earth Component using Raycaster (in case GLTF fails to load)
+// Fallback Earth Component
 function FallbackEarth() {
   const meshRef = useRef<THREE.Mesh>(null);
-  const { camera, size, gl } = useThree();
-  const [isDragging, setIsDragging] = useState(false);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const [earthRotation, setEarthRotation] = useState({ x: 0, y: 0 });
+  const { isDragging, earthRotation, handlePointerDown, handlePointerMove, handlePointerUp, updatePosition } = useDragLogic();
   
-  // Create raycaster and invisible plane for mouse intersection
-  const raycaster = useRef(new THREE.Raycaster());
-  const intersectionPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0));
-  const mouse = useRef(new THREE.Vector2());
-  
-  // Apply rotation and position to the earth
   useFrame(() => {
     if (meshRef.current) {
       meshRef.current.rotation.x = earthRotation.x;
       meshRef.current.rotation.y = earthRotation.y;
-      
-      if (isDragging) {
-        // Convert canvas-relative mouse coordinates to normalized device coordinates (-1 to +1)
-        const canvas = gl.domElement;
-        const rect = canvas.getBoundingClientRect();
-        mouse.current.x = (mousePosition.x / rect.width) * 2 - 1;
-        mouse.current.y = -(mousePosition.y / rect.height) * 2 + 1;
-        
-        // Set up raycaster from camera through mouse position
-        raycaster.current.setFromCamera(mouse.current, camera);
-        
-        // Find intersection point with our invisible plane at z=0
-        const intersectPoint = new THREE.Vector3();
-        raycaster.current.ray.intersectPlane(intersectionPlane.current, intersectPoint);
-        
-        // Update Earth position to follow mouse
-        if (intersectPoint) {
-          meshRef.current.position.copy(intersectPoint);
-        }
-      }
+      updatePosition(meshRef);
     }
   });
-
-  const handlePointerDown = (event: any) => {
-    setIsDragging(true);
-    // Get canvas bounds for proper coordinate conversion
-    const canvas = gl.domElement;
-    const rect = canvas.getBoundingClientRect();
-    setMousePosition({
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top
-    });
-    event.stopPropagation();
-  };
-
-  const handlePointerMove = (event: any) => {
-    if (!isDragging) return;
-    
-    // Get canvas bounds for proper coordinate conversion
-    const canvas = gl.domElement;
-    const rect = canvas.getBoundingClientRect();
-    const prevMousePosition = mousePosition;
-    const newMousePosition = {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top
-    };
-    
-    setMousePosition(newMousePosition);
-    
-    // Also handle rotation based on delta movement
-    const deltaX = newMousePosition.x - prevMousePosition.x;
-    const deltaY = newMousePosition.y - prevMousePosition.y;
-    
-    const rotationSpeed = 0.0005;
-    setEarthRotation(prev => ({
-      x: prev.x - deltaY * rotationSpeed,
-      y: prev.y - deltaX * rotationSpeed
-    }));
-    
-    event.stopPropagation();
-  };
-
-  const handlePointerUp = () => {
-    setIsDragging(false);
-    // Return Earth to center when released
-    if (meshRef.current) {
-      meshRef.current.position.x = 0;
-      meshRef.current.position.y = 0;
-      meshRef.current.position.z = 0;
-    }
-  };
-
-  // Add global mouse listeners when dragging
-  React.useEffect(() => {
-    if (isDragging) {
-      const handleGlobalMouseMove = (event: MouseEvent) => {
-        // Get canvas bounds for proper coordinate conversion
-        const canvas = gl.domElement;
-        const rect = canvas.getBoundingClientRect();
-        const prevMousePosition = mousePosition;
-        const newMousePosition = {
-          x: event.clientX - rect.left,
-          y: event.clientY - rect.top
-        };
-        
-        setMousePosition(newMousePosition);
-        
-        // Also handle rotation based on delta movement
-        const deltaX = newMousePosition.x - prevMousePosition.x;
-        const deltaY = newMousePosition.y - prevMousePosition.y;
-        
-        const rotationSpeed = 0.0005;
-        setEarthRotation(prev => ({
-          x: prev.x - deltaY * rotationSpeed,
-          y: prev.y - deltaX * rotationSpeed
-        }));
-      };
-
-      const handleGlobalMouseUp = () => {
-        setIsDragging(false);
-        // Return Earth to center when released
-        if (meshRef.current) {
-          meshRef.current.position.x = 0;
-          meshRef.current.position.y = 0;
-          meshRef.current.position.z = 0;
-        }
-      };
-
-      window.addEventListener('mousemove', handleGlobalMouseMove);
-      window.addEventListener('mouseup', handleGlobalMouseUp);
-
-      return () => {
-        window.removeEventListener('mousemove', handleGlobalMouseMove);
-        window.removeEventListener('mouseup', handleGlobalMouseUp);
-      };
-    }
-  }, [isDragging, mousePosition]);
 
   return (
     <mesh 
@@ -303,7 +168,7 @@ function FallbackEarth() {
       position={[0, 0, 0]}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
+      onPointerUp={() => handlePointerUp(meshRef)}
     >
       <sphereGeometry args={[1, 64, 64]} />
       <meshStandardMaterial
