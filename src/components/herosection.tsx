@@ -118,6 +118,69 @@ function useDragLogic() {
   };
 }
 
+// Jupiter Model Component
+function JupiterModel() {
+  const jupiterRef = useRef<THREE.Group>(null);
+  const { scene } = useGLTF('/models/Jupiter.gltf');
+  const { isDragging, earthRotation, handlePointerDown, handlePointerMove, handlePointerUp, updatePosition } = useDragLogic();
+  
+  const jupiterScene = scene.clone();
+  
+  useFrame(() => {
+    if (jupiterRef.current) {
+      jupiterRef.current.rotation.x = earthRotation.x;// Slightly different spin speed
+      updatePosition(jupiterRef);
+    }
+  });
+  
+  return (
+    <group 
+      ref={jupiterRef} 
+      scale={[0.5,0.5,0.5]} // Scale down Jupiter since it's naturally much larger
+      position={[7, -5, 0]} // Position to the right of Earth
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={() => handlePointerUp(jupiterRef)}
+    >
+      <primitive object={jupiterScene} />
+    </group>
+  );
+}
+
+// Fallback Jupiter Component
+function FallbackJupiter() {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const { isDragging, earthRotation, handlePointerDown, handlePointerMove, handlePointerUp, updatePosition } = useDragLogic();
+  
+  useFrame(() => {
+    if (meshRef.current) {
+      meshRef.current.rotation.x = earthRotation.x;
+      meshRef.current.rotation.y = earthRotation.y + Date.now() * 0.0008;
+      updatePosition(meshRef);
+    }
+  });
+
+  return (
+    <mesh 
+      ref={meshRef} 
+      scale={[0.5, 0.5, 0.5]} // Larger than Earth
+      position={[0, 0, 0]} // Position to the right of Earth
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={() => handlePointerUp(meshRef)}
+    >
+      <sphereGeometry args={[1, 64, 64]} />
+      <meshStandardMaterial
+        color="#D8CA9D"
+        metalness={0.1}
+        roughness={0.8}
+        emissive="#8B4513"
+        emissiveIntensity={0.1}
+      />
+    </mesh>
+  );
+}
+
 // Earth Model Component
 function EarthModel() {
   const earthRef = useRef<THREE.Group>(null);
@@ -138,7 +201,7 @@ function EarthModel() {
     <group 
       ref={earthRef} 
       scale={[1, 1, 1]} 
-      position={[0, 0, 0]}
+      position={[-5, 0, 0]}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={() => handlePointerUp(earthRef)}
@@ -235,9 +298,13 @@ export default function HeroSection() {
           />
           <pointLight position={[-10, -10, -10]} intensity={0.5} color="#0ab1ffff" />
           
-          {/* Earth Model with Suspense fallback */}
+          {/* Earth and Jupiter Models with Suspense fallbacks */}
           <Suspense fallback={<FallbackEarth />}>
             <EarthModel />
+          </Suspense>
+          
+          <Suspense fallback={<FallbackJupiter />}>
+            <JupiterModel />
           </Suspense>
           
           {/* Environment for reflections */}
@@ -293,7 +360,7 @@ export default function HeroSection() {
             <div className="space-y-3 text-sm text-gray-300">
               <div className="flex items-center">
                 <div className="w-3 h-3 mr-3 bg-blue-400 rounded-full"></div>
-                <span>Drag Earth around the screen</span>
+                <span>Drag planets around the screen</span>
               </div>
               <div className="flex items-center">
                 <div className="w-3 h-3 mr-3 bg-purple-400 rounded-full"></div>
@@ -301,7 +368,7 @@ export default function HeroSection() {
               </div>
               <div className="flex items-center">
                 <div className="w-3 h-3 mr-3 bg-pink-400 rounded-full"></div>
-                <span>Earth follows your cursor</span>
+                <span>Planets spin automatically</span>
               </div>
             </div>
           </div>
@@ -325,5 +392,6 @@ export default function HeroSection() {
   );
 }
 
-// Preload the Earth model
+// Preload the models
 useGLTF.preload('/models/Earth.gltf');
+useGLTF.preload('/models/Jupiter.gltf');
