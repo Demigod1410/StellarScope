@@ -6,8 +6,8 @@ Command: npx gltfjsx@6.5.3 Earth.gltf
 import React from 'react'
 import { useGLTF } from '@react-three/drei'
 
-export function Model(props) {
-  const { nodes, materials } = useGLTF('/Earth.gltf')
+export default function Model(props) {
+  const { nodes, materials } = useGLTF('public/models/Earth.gltf')
   return (
     <group {...props} dispose={null}>
       <mesh geometry={nodes.Earth.geometry} material={materials.Earth_Texture} position={[-17.202, 13.905, -63.091]} rotation={[-3.073, 0.101, 0.008]} scale={-3.39} />
@@ -15,4 +15,4 @@ export function Model(props) {
   )
 }
 
-useGLTF.preload('/Earth.gltf')
+useGLTF.preload('public/models/Earth.gltf')
