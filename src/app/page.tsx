@@ -18,7 +18,6 @@ export default function Home() {
           hueShift={2}
         />
       </div>
-      
       {/* Hero Section with Earth Model */}
       { <div className="relative z-10">
         <HeroSection />

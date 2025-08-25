@@ -2,8 +2,9 @@
 
 import React, { Suspense, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useGLTF, Environment } from '@react-three/drei';
+import { useGLTF, Environment, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
+import Earth2 from '../../public/Earth2'
 
 // Custom hook for shared drag logic
 function useDragLogic() {
@@ -274,19 +275,7 @@ export default function HeroSection() {
     <section className="relative w-full h-screen overflow-hidden">
       {/* 3D Canvas Background */}
       <div className="absolute inset-0 z-10 cursor-grab active:cursor-grabbing">
-        <Canvas
-          camera={{ 
-            position: [0, 0, 8], 
-            fov: 45,
-            near: 0.1,
-            far: 1000 
-          }}
-          gl={{ 
-            antialias: true,
-            alpha: true,
-            powerPreference: "high-performance"
-          }}
-        >
+        <Canvas>
           {/* Lighting */}
           <ambientLight intensity={0.4} />
           <directionalLight 
@@ -299,19 +288,22 @@ export default function HeroSection() {
           <pointLight position={[-10, -10, -10]} intensity={0.5} color="#0ab1ffff" />
           
           {/* Earth and Jupiter Models with Suspense fallbacks */}
+          
+          
           <Suspense fallback={<FallbackEarth />}>
-            <EarthModel />
+          <OrbitControls  enableZoom={false}  />
+            <Earth2 />
           </Suspense>
           
           <Suspense fallback={<FallbackJupiter />}>
             <JupiterModel />
           </Suspense>
-          
+              
           {/* Environment for reflections */}
           <Environment preset="sunset" />
           
           {/* Custom Camera Controls for Zoom */}
-          <CameraControls />
+         
         </Canvas>
       </div>
 
